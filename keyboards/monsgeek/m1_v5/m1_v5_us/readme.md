@@ -33,9 +33,13 @@ Enter the bootloader in 3 ways:
     `qmk compile -kb monsgeek/m1_v5/m1_v5_us -km default`
 2. Flashing with the QMK Toolbox:
     * Open Local file: MonsGeek/qmk_firmware_monsgeek/monsgeek_m1_v5_m1_v5_us_default.bin
-    * ATmega32U4
-    * Hold the Escape key while connecting the USB cable to set the board into bootloader mode
+    * Select "ATmega32U4" on top right
+    * [Keyboard] Toggle switch under the CAPS key to middle position (Built-in power supply off)
+    * [Keyboard] Hold the Escape key while connecting the USB cable to set the board into bootloader mode
     * Click "Flash"
     * Attempting to flash, please don't remove device
     * Flash complete
     * Click "Exit DFU"
+
+## Backlight Effect
+PBT_NEON: Press FN + Del 16 times

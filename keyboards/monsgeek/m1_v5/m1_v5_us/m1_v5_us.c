@@ -1437,10 +1437,6 @@ bool rgb_matrix_indicators_advanced_kb(uint8_t led_min, uint8_t led_max) {
             rgb_matrix_set_hsv_color(HS_RGB_INDEX_SPC, &hsv_pbt_green);
         }
         rgb_matrix_set_hsv_color(HS_RGB_INDEX_DELETE, &hsv_pbt_white);
-        rgb_matrix_set_hsv_color(HS_RGB_INDEX_MINS, &hsv_pbt_white);
-        rgb_matrix_set_hsv_color(HS_RGB_INDEX_EQL, &hsv_pbt_white);
-        rgb_matrix_set_hsv_color(HS_RGB_INDEX_UP, &hsv_pbt_white);
-        rgb_matrix_set_hsv_color(HS_RGB_INDEX_DOWN, &hsv_pbt_white);
     }
 
     if (confinfo.dir_flag) {
