@@ -4,6 +4,7 @@
 #include QMK_KEYBOARD_H
 #include "wls/wls.h"
 #include "rgb_record/rgb_record.h"
+#include "lib/lib8tion/lib8tion.h"
 
 #ifdef WIRELESS_ENABLE
 #    include "wireless.h"
@@ -43,6 +44,42 @@ enum layers {
     _FBL,
 };
 
+const uint8_t LED_LIST_CAPS_LOCK_LETTERS[] = {
+    HS_RGB_INDEX_A,
+    HS_RGB_INDEX_Q,
+    HS_RGB_INDEX_W,
+    HS_RGB_INDEX_Z,
+    HS_RGB_INDEX_S,
+    HS_RGB_INDEX_E,
+    HS_RGB_INDEX_X,
+    HS_RGB_INDEX_D,
+    HS_RGB_INDEX_R,
+    HS_RGB_INDEX_C,
+    HS_RGB_INDEX_F,
+    HS_RGB_INDEX_T,
+    HS_RGB_INDEX_G,
+    HS_RGB_INDEX_V,
+    HS_RGB_INDEX_Y,
+    HS_RGB_INDEX_H,
+    HS_RGB_INDEX_B,
+    HS_RGB_INDEX_U,
+    HS_RGB_INDEX_J,
+    HS_RGB_INDEX_N,
+    HS_RGB_INDEX_I,
+    HS_RGB_INDEX_K,
+    HS_RGB_INDEX_M,
+    HS_RGB_INDEX_O,
+    HS_RGB_INDEX_L,
+    HS_RGB_INDEX_P
+};
+
+const HSV hsv_pbt_purple PROGMEM = {215,  200, 255};
+const HSV hsv_pbt_red PROGMEM = {0,  240, 255};
+const HSV hsv_pbt_amber PROGMEM = {9,  250, 255};
+const HSV hsv_pbt_green PROGMEM = {85,  180, 255};
+const HSV hsv_pbt_blue PROGMEM = {136,  197, 255};
+const HSV hsv_pbt_white PROGMEM = {20,   50,   180};
+
 hs_rgb_indicator_t hs_rgb_indicators[HS_RGB_INDICATOR_COUNT];
 hs_rgb_indicator_t hs_rgb_bat[HS_RGB_BAT_COUNT];
 
@@ -51,6 +88,7 @@ void hs_reset_settings(void);
 void rgb_matrix_hs_indicator(void);
 void rgb_matrix_hs_indicator_set(uint8_t index, RGB rgb, uint32_t interval, uint8_t times);
 void rgb_matrix_hs_set_remain_time(uint8_t index, uint8_t remain_time);
+extern uint32_t hs_rgb_blink_get_timer(void);  // wls sleep timer (not declared in wls.h)
 
 #define keymap_is_mac_system() ((get_highest_layer(default_layer_state) == _MBL) || (get_highest_layer(default_layer_state) == _MFL))
 #define keymap_is_base_layer() ((get_highest_layer(default_layer_state) == _BL) || (get_highest_layer(default_layer_state) == _FL))
@@ -69,6 +107,26 @@ HSV start_hsv;
 bool no_record_fg,im_test_rate_flag;
 bool lower_sleep = false;
 uint8_t buff[]   = {14, 8, 2, 1, 1, 1, 1, 1, 1, 1, 0};
+
+bool red_caps_leds[ARRAY_SIZE(LED_LIST_CAPS_LOCK_LETTERS)] = { false };
+uint8_t amber_caps_count = 0;
+uint8_t red_caps_delay = 0;
+
+// Volume knob/keys drive the PBT_NEON chaser. The knob has no LED, so we queue
+// "steps" here from process_record and let chaser_effect() consume them.
+// >0 = pending up steps (raise), <0 = pending down steps (lower).
+int8_t volume_chaser_steps = 0;
+
+static void rgb_matrix_set_hsv_color(uint8_t led_index, const HSV* hsv_ptr) {
+    HSV hsv;
+    memcpy_P(&hsv, hsv_ptr, sizeof(HSV));
+    if (hsv.v > rgb_matrix_get_val()) {
+        hsv.v = rgb_matrix_get_val();
+    }
+    RGB rgb = hsv_to_rgb(hsv);
+	// Set the new RGB values for the LED
+    rgb_matrix_set_color(led_index, rgb.r, rgb.g, rgb.b);
+}
 
 void eeconfig_confinfo_update(uint32_t raw) {
 
@@ -371,6 +429,41 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         case RP_P2:
         case RGB_MOD:
             break;
+        case KC_VOLU:
+            // Queue a chaser "up" step; plain break -> return true so the HID code is still sent.
+            if (record->event.pressed && volume_chaser_steps < 32) volume_chaser_steps++;
+            break;
+        case KC_VOLD:
+            if (record->event.pressed && volume_chaser_steps > -32) volume_chaser_steps--;
+            break;
+        case AP_GLOB:
+            if (record->event.pressed) {
+                host_consumer_send(AC_NEXT_KEYBOARD_LAYOUT_SELECT);
+            } else {
+                host_consumer_send(0);
+            }
+            return false;
+        case AP_SPOT:
+            if (record->event.pressed) {
+                host_consumer_send(0x221);
+            } else {
+                host_consumer_send(0);
+            }
+            return false;
+        case AP_DICT:
+            if (record->event.pressed) {
+                host_consumer_send(0xCF);
+            } else {
+                host_consumer_send(0);
+            }
+            return false;
+        case AP_DND:
+            if (record->event.pressed) {
+                host_system_send(0x9B);
+            } else {
+                host_system_send(0);
+            }
+            return false;
         default: {
             if (rgbrec_is_started()) {
                 if (!IS_QK_MOMENTARY(keycode) && record->event.pressed) {
@@ -968,31 +1061,43 @@ void wireless_devs_change_kb(uint8_t old_devs, uint8_t new_devs, bool reset) {
 
     switch (new_devs) {
         case DEVS_USB: {
+            HSV hsv_usb;
+            memcpy_P(&hsv_usb, &hsv_pbt_green, sizeof(HSV));
+            RGB rgb_usb = hsv_to_rgb(hsv_usb);
             if (reset) {
-                rgb_matrix_wls_indicator_set(HS_RGB_BLINK_INDEX_USB, (RGB){HS_LBACK_COLOR_USB}, 200, 1);
+                rgb_matrix_wls_indicator_set(HS_RGB_BLINK_INDEX_USB, rgb_usb, 200, 1);
             } else {
-                rgb_matrix_wls_indicator_set(HS_RGB_BLINK_INDEX_USB, (RGB){HS_PAIR_COLOR_USB}, 500, 1);
+                rgb_matrix_wls_indicator_set(HS_RGB_BLINK_INDEX_USB, rgb_usb, 500, 1);
             }
         } break;
         case DEVS_BT1: {
+            HSV hsv_bt;
+            memcpy_P(&hsv_bt, &hsv_pbt_blue, sizeof(HSV));
+            RGB rgb_bt = hsv_to_rgb(hsv_bt);
             if (reset) {
-                rgb_matrix_wls_indicator_set(HS_RGB_BLINK_INDEX_BT1, (RGB){HS_LBACK_COLOR_BT1}, 200, 1);
+                rgb_matrix_wls_indicator_set(HS_RGB_BLINK_INDEX_BT1, rgb_bt, 200, 1);
             } else {
-                rgb_matrix_wls_indicator_set(HS_RGB_BLINK_INDEX_BT1, (RGB){HS_PAIR_COLOR_BT1}, 500, 1);
+                rgb_matrix_wls_indicator_set(HS_RGB_BLINK_INDEX_BT1, rgb_bt, 500, 1);
             }
         } break;
         case DEVS_BT2: {
+            HSV hsv_bt;
+            memcpy_P(&hsv_bt, &hsv_pbt_blue, sizeof(HSV));
+            RGB rgb_bt = hsv_to_rgb(hsv_bt);
             if (reset) {
-                rgb_matrix_wls_indicator_set(HS_RGB_BLINK_INDEX_BT2, (RGB){HS_LBACK_COLOR_BT2}, 200, 1);
+                rgb_matrix_wls_indicator_set(HS_RGB_BLINK_INDEX_BT2, rgb_bt, 200, 1);
             } else {
-                rgb_matrix_wls_indicator_set(HS_RGB_BLINK_INDEX_BT2, (RGB){HS_PAIR_COLOR_BT2}, 500, 1);
+                rgb_matrix_wls_indicator_set(HS_RGB_BLINK_INDEX_BT2, rgb_bt, 500, 1);
             }
         } break;
         case DEVS_BT3: {
+            HSV hsv_bt;
+            memcpy_P(&hsv_bt, &hsv_pbt_blue, sizeof(HSV));
+            RGB rgb_bt = hsv_to_rgb(hsv_bt);
             if (reset) {
-                rgb_matrix_wls_indicator_set(HS_RGB_BLINK_INDEX_BT3, (RGB){HS_LBACK_COLOR_BT3}, 200, 1);
+                rgb_matrix_wls_indicator_set(HS_RGB_BLINK_INDEX_BT3, rgb_bt, 200, 1);
             } else {
-                rgb_matrix_wls_indicator_set(HS_RGB_BLINK_INDEX_BT3, (RGB){HS_PAIR_COLOR_BT3}, 500, 1);
+                rgb_matrix_wls_indicator_set(HS_RGB_BLINK_INDEX_BT3, rgb_bt, 500, 1);
             }
         } break;
         case DEVS_BT4: {
@@ -1010,10 +1115,13 @@ void wireless_devs_change_kb(uint8_t old_devs, uint8_t new_devs, bool reset) {
             }
         } break;
         case DEVS_2G4: {
+            HSV hsv_2g4;
+            memcpy_P(&hsv_2g4, &hsv_pbt_purple, sizeof(HSV));
+            RGB rgb_2g4 = hsv_to_rgb(hsv_2g4);
             if (reset) {
-                rgb_matrix_wls_indicator_set(HS_RGB_BLINK_INDEX_2G4, (RGB){HS_LBACK_COLOR_2G4}, 200, 1);
+                rgb_matrix_wls_indicator_set(HS_RGB_BLINK_INDEX_2G4, rgb_2g4, 200, 1);
             } else {
-                rgb_matrix_wls_indicator_set(HS_RGB_BLINK_INDEX_2G4, (RGB){HS_LBACK_COLOR_2G4}, 500, 1);
+                rgb_matrix_wls_indicator_set(HS_RGB_BLINK_INDEX_2G4, rgb_2g4, 500, 1);
             }
         } break;
         default:
@@ -1108,10 +1216,15 @@ void bat_indicators(void) {
     } else if (charging_state) {
 
         battery_process_time = 0;
-        rgb_matrix_set_color(HS_MATRIX_BLINK_INDEX_BAT, 0x00, 0xFF, 0x00);
+        HSV hsv = hsv_pbt_green;
+        hsv.v   = scale8(abs8(sin8(timer_read32() / 32) - 128) * 2, hsv.v);
+        RGB rgb = hsv_to_rgb(hsv);
+        rgb_matrix_set_color(HS_MATRIX_BLINK_INDEX_BAT, rgb.r, rgb.g, rgb.b);
     } else if (*md_getp_bat() <= BATTERY_CAPACITY_LOW) {
-
-        rgb_matrix_hs_bat_set(HS_MATRIX_BLINK_INDEX_BAT, (RGB){0xFF, 0x00, 0x00}, 250, 1);
+        HSV hsv_red;
+        memcpy_P(&hsv_red, &hsv_pbt_red, sizeof(HSV));
+        RGB rgb_red = hsv_to_rgb(hsv_red);
+        rgb_matrix_hs_bat_set(HS_MATRIX_BLINK_INDEX_BAT, rgb_red, 250, 1);
 
         if (*md_getp_bat() <= BATTERY_CAPACITY_STOP) {
             if (!battery_process_time) {
@@ -1224,6 +1337,27 @@ void rgb_matrix_hs_indicator(void) {
     }
 }
 
+// Pre-sleep idle countdown step, consumed by the PBT_NEON effect in
+// rgb_matrix_user.inc to drive the scrolling VU bar on the PgDn..Home column
+// before wireless sleep. Returns the elapsed whole-second step (0,1,2,...)
+// since the HS_IDLE_COUNTDOWN_TIME window opened, or -1 when inactive
+// (USB mode, timer unset, or outside the window). One step == the bar moves
+// down by one LED. Kept here because the wireless timer/state lives in this
+// translation unit.
+int8_t hs_idle_countdown_step(void) {
+#ifdef WIRELESS_ENABLE
+    if (wireless_get_current_devs() == DEVS_USB) return -1;
+    uint32_t blink_timer = hs_rgb_blink_get_timer();
+    if (!blink_timer) return -1;
+    uint32_t elapsed = timer_elapsed32(blink_timer);
+    uint32_t start   = HS_SLEEP_TIMEOUT - HS_IDLE_COUNTDOWN_TIME;  // 36000
+    if (elapsed < start || elapsed >= HS_SLEEP_TIMEOUT) return -1;
+    return (int8_t)((elapsed - start) / 1000);  // 0..23
+#else
+    return -1;
+#endif
+}
+
 bool rgb_matrix_indicators_advanced_kb(uint8_t led_min, uint8_t led_max) {
 
     if (test_white_light_flag) {
@@ -1243,12 +1377,82 @@ bool rgb_matrix_indicators_advanced_kb(uint8_t led_min, uint8_t led_max) {
         hs_reset_settings();
         ee_clr_timer = 0;
     }
+    
+    if (host_keyboard_led_state().caps_lock) {
+        rgb_matrix_set_hsv_color(HS_RGB_INDEX_CAPS, &hsv_pbt_amber);
 
-    if (host_keyboard_led_state().caps_lock)
-        rgb_matrix_set_color(HS_RGB_INDEX_CAPS, 0x20, 0x20, 0x20);
+        for (uint8_t i = 0; i < ARRAY_SIZE(LED_LIST_CAPS_LOCK_LETTERS); i++) {
+            uint8_t led = LED_LIST_CAPS_LOCK_LETTERS[i];
+            if (amber_caps_count >= ARRAY_SIZE(LED_LIST_CAPS_LOCK_LETTERS)) {
+                rgb_matrix_set_hsv_color(led, red_caps_leds[i] ? &hsv_pbt_red : &hsv_pbt_amber);
+            } else if (i <= amber_caps_count) {
+                rgb_matrix_set_hsv_color(led, &hsv_pbt_amber);
+            }
+        }
+        if (amber_caps_count >= ARRAY_SIZE(LED_LIST_CAPS_LOCK_LETTERS)) {
+            if (red_caps_delay % 10 == 0) {
+                red_caps_leds[random8_max(ARRAY_SIZE(LED_LIST_CAPS_LOCK_LETTERS))] = true;
+            }
+        } else if (red_caps_delay % 5 == 0) {
+            amber_caps_count++;
+        }
+        red_caps_delay = (red_caps_delay + 1) % 11;
+    } else {
+        memset(red_caps_leds, 0, sizeof(red_caps_leds));
+        amber_caps_count = 0;
+        red_caps_delay = 0;
+    }
 
     if (!keymap_is_mac_system() && keymap_config.no_gui)
         rgb_matrix_set_color(HS_RGB_INDEX_WIN_LOCK, 0x20, 0x20, 0x20);
+
+    uint8_t highest_layer = get_highest_layer(layer_state);
+    if (highest_layer == _FL || highest_layer == _MFL) {
+        if (confinfo.devs == DEVS_BT1) {
+            rgb_matrix_set_hsv_color(HS_RGB_INDEX_E, &hsv_pbt_amber);
+        } else {
+            rgb_matrix_set_hsv_color(HS_RGB_INDEX_E, &hsv_pbt_blue);
+        }
+        if (confinfo.devs == DEVS_BT2) {
+            rgb_matrix_set_hsv_color(HS_RGB_INDEX_R, &hsv_pbt_amber);
+        } else {
+            rgb_matrix_set_hsv_color(HS_RGB_INDEX_R, &hsv_pbt_blue);
+        }
+        if (confinfo.devs == DEVS_BT3) {
+            rgb_matrix_set_hsv_color(HS_RGB_INDEX_T, &hsv_pbt_amber);
+        } else {
+            rgb_matrix_set_hsv_color(HS_RGB_INDEX_T, &hsv_pbt_blue);
+        }
+        if (confinfo.devs == DEVS_2G4) {
+            rgb_matrix_set_hsv_color(HS_RGB_INDEX_Y, &hsv_pbt_amber);
+        } else {
+            rgb_matrix_set_hsv_color(HS_RGB_INDEX_Y, &hsv_pbt_purple);
+        }
+        if (confinfo.devs == DEVS_USB) {
+            rgb_matrix_set_hsv_color(HS_RGB_INDEX_U, &hsv_pbt_amber);
+        } else {
+            rgb_matrix_set_hsv_color(HS_RGB_INDEX_U, &hsv_pbt_green);
+        }
+        if (confinfo.devs != DEVS_USB) {
+            rgb_matrix_set_hsv_color(HS_RGB_INDEX_SPC, &hsv_pbt_green);
+        }
+        rgb_matrix_set_hsv_color(HS_RGB_INDEX_DELETE, &hsv_pbt_white);
+        rgb_matrix_set_hsv_color(HS_RGB_INDEX_MINS, &hsv_pbt_white);
+        rgb_matrix_set_hsv_color(HS_RGB_INDEX_EQL, &hsv_pbt_white);
+        rgb_matrix_set_hsv_color(HS_RGB_INDEX_UP, &hsv_pbt_white);
+        rgb_matrix_set_hsv_color(HS_RGB_INDEX_DOWN, &hsv_pbt_white);
+    }
+
+    if (confinfo.dir_flag) {
+        rgb_matrix_set_hsv_color(HS_RGB_INDEX_A, &hsv_pbt_red);
+        rgb_matrix_set_hsv_color(HS_RGB_INDEX_S, &hsv_pbt_amber);
+        rgb_matrix_set_hsv_color(HS_RGB_INDEX_D, &hsv_pbt_green);
+        rgb_matrix_set_hsv_color(HS_RGB_INDEX_W, &hsv_pbt_blue);
+        rgb_matrix_set_hsv_color(HS_RGB_INDEX_LEFT, &hsv_pbt_red);
+        rgb_matrix_set_hsv_color(HS_RGB_INDEX_DOWN, &hsv_pbt_amber);
+        rgb_matrix_set_hsv_color(HS_RGB_INDEX_RIGHT, &hsv_pbt_green);
+        rgb_matrix_set_hsv_color(HS_RGB_INDEX_UP, &hsv_pbt_blue);
+    }
 
 #ifdef RGBLIGHT_ENABLE
     if (rgb_matrix_indicators_advanced_rgblight(led_min, led_max) != true) {

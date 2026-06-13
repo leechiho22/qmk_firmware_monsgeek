@@ -76,6 +76,18 @@
         },
         {
             "key": "HS_CT_A"
+        },
+        {
+            "key": "AP_GLOB"
+        },
+        {
+            "key": "AP_SPOT"
+        },
+        {
+            "key": "AP_DICT"
+        },
+        {
+            "key": "AP_DND"
         }
     ],
     "dynamic_keymap": {

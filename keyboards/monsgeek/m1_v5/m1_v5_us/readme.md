@@ -28,3 +28,14 @@ Enter the bootloader in 3 ways:
 * **Physical reset button**: Briefly press the button on the back of the PCB - some may have pads you must short instead
 * **Keycode in layout**: Press the key mapped to `QK_BOOT` if it is available
 
+## Flashing steps
+1. Build the firmware:
+    `qmk compile -kb monsgeek/m1_v5/m1_v5_us -km default`
+2. Flashing with the QMK Toolbox:
+    * Open Local file: MonsGeek/qmk_firmware_monsgeek/monsgeek_m1_v5_m1_v5_us_default.bin
+    * ATmega32U4
+    * Hold the Escape key while connecting the USB cable to set the board into bootloader mode
+    * Click "Flash"
+    * Attempting to flash, please don't remove device
+    * Flash complete
+    * Click "Exit DFU"

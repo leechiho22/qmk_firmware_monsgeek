@@ -23,7 +23,7 @@ static uint16_t rgbrec_hs_lists[] = RGB_RECORD_HS_LISTS;
 static uint8_t rgbrec_buffer[MATRIX_ROWS * MATRIX_COLS * 2];
 
 //clang-format off
-static const uint8_t rgbmatrix_buff[]   = {13, 15, 16, 24, 25, 26, 29, 37, 33, 34, 35, 43, 2, 5, 6, 9};
+static const uint8_t rgbmatrix_buff[]   = {RGB_MATRIX_CUSTOM_PBT_NEON, 13, 15, 16, 24, 25, 26, 29, 37, 33, 34, 35, 43, 2, 5, 6, 9};
 static const uint8_t sixth_gear_buff[]  = {6, 13, 15, 16, 25, 26, 34};
 static uint8_t rgb_hsvs[RGB_HSV_MAX][2] = {
     {0,   255},

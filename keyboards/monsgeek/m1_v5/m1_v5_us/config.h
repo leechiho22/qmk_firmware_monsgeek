@@ -45,7 +45,6 @@
 
 /* Status Indicator Lamp */
 #define HS_MATRIX_BLINK_INDEX_BAT           1
-#define HS_RGB_INDEX_CAPS                   52
 #define HS_RGB_INDEX_WIN_LOCK               79
 
 #define HS_RGB_BLINK_INDEX_WIN              53
@@ -88,3 +87,90 @@
 #define EECONFIG_USER_DATA_SIZE    (EECONFIG_RGBREC_USE_SIZE + EECONFIG_CONFINFO_USE_SIZE)
 #define RGBREC_EECONFIG_ADDR       (uint8_t *)(EECONFIG_USER_DATABLOCK)
 #define CONFINFO_EECONFIG_ADDR     (uint32_t *)((uint32_t)RGBREC_EECONFIG_ADDR + (uint32_t)EECONFIG_RGBREC_USE_SIZE)
+
+/* All HS_RGB_INDEX */
+#define HS_RGB_INDEX_FN                     1
+#define HS_RGB_INDEX_GLOBE                  2   // Used to be right control
+#define HS_RGB_INDEX_LEFT                   3
+#define HS_RGB_INDEX_DOWN                   4
+#define HS_RGB_INDEX_RIGHT                  5
+#define HS_RGB_INDEX_PGDN                   6
+#define HS_RGB_INDEX_PGUP                   7
+#define HS_RGB_INDEX_END                    8
+#define HS_RGB_INDEX_HOME                   9
+#define HS_RGB_INDEX_DELETE                10
+#define HS_RGB_INDEX_F12                   11
+#define HS_RGB_INDEX_F11                   12
+#define HS_RGB_INDEX_F10                   13
+#define HS_RGB_INDEX_F9                    14
+#define HS_RGB_INDEX_F8                    15
+#define HS_RGB_INDEX_F7                    16
+#define HS_RGB_INDEX_F6                    17
+#define HS_RGB_INDEX_F5                    18
+#define HS_RGB_INDEX_F4                    19
+#define HS_RGB_INDEX_F3                    20
+#define HS_RGB_INDEX_F2                    21
+#define HS_RGB_INDEX_F1                    22
+#define HS_RGB_INDEX_ESC                   23
+#define HS_RGB_INDEX_GRV                   24   // `
+#define HS_RGB_INDEX_1                     25
+#define HS_RGB_INDEX_2                     26
+#define HS_RGB_INDEX_3                     27
+#define HS_RGB_INDEX_4                     28
+#define HS_RGB_INDEX_5                     29
+#define HS_RGB_INDEX_6                     30
+#define HS_RGB_INDEX_7                     31
+#define HS_RGB_INDEX_8                     32
+#define HS_RGB_INDEX_9                     33
+#define HS_RGB_INDEX_0                     34  
+#define HS_RGB_INDEX_MINS                  35   // -
+#define HS_RGB_INDEX_EQL                   36   // =
+#define HS_RGB_INDEX_BSPC                  37   // Backspace
+#define HS_RGB_INDEX_BSLS                  38   /* \ */
+#define HS_RGB_INDEX_RBRC                  39   // ]
+#define HS_RGB_INDEX_LBRC                  40   // [
+#define HS_RGB_INDEX_P                     41
+#define HS_RGB_INDEX_O                     42
+#define HS_RGB_INDEX_I                     43
+#define HS_RGB_INDEX_U                     44
+#define HS_RGB_INDEX_Y                     45
+#define HS_RGB_INDEX_T                     46
+#define HS_RGB_INDEX_R                     47
+#define HS_RGB_INDEX_E                     48
+#define HS_RGB_INDEX_W                     49
+#define HS_RGB_INDEX_Q                     50
+#define HS_RGB_INDEX_TAB                   51
+#define HS_RGB_INDEX_CAPS                  52
+#define HS_RGB_INDEX_A                     53
+#define HS_RGB_INDEX_S                     54
+#define HS_RGB_INDEX_D                     55
+#define HS_RGB_INDEX_F                     56
+#define HS_RGB_INDEX_G                     57
+#define HS_RGB_INDEX_H                     58
+#define HS_RGB_INDEX_J                     59
+#define HS_RGB_INDEX_K                     60
+#define HS_RGB_INDEX_L                     61
+#define HS_RGB_INDEX_SCLN                  62   // ;
+#define HS_RGB_INDEX_QUOT                  63   // '
+#define HS_RGB_INDEX_ENT                   64 
+#define HS_RGB_INDEX_UP                    65 
+#define HS_RGB_INDEX_RSFT                  66   // Right Shift
+#define HS_RGB_INDEX_SLSH                  67   // ?
+#define HS_RGB_INDEX_DOT                   68   // .
+#define HS_RGB_INDEX_COMM                  69   // ,
+#define HS_RGB_INDEX_M                     70
+#define HS_RGB_INDEX_N                     71
+#define HS_RGB_INDEX_B                     72
+#define HS_RGB_INDEX_V                     73
+#define HS_RGB_INDEX_C                     74
+#define HS_RGB_INDEX_X                     75
+#define HS_RGB_INDEX_Z                     76
+#define HS_RGB_INDEX_LSFT                  77   // Left Shift
+#define HS_RGB_INDEX_LCTL                  78   // Left Control
+#define HS_RGB_INDEX_LWIN                  79   // Left Win / Option
+#define HS_RGB_INDEX_LALT                  80
+#define HS_RGB_INDEX_SPC                   81   // Space
+#define HS_RGB_INDEX_RALT                  82
+
+/* Pre-sleep idle countdown */
+#define HS_IDLE_COUNTDOWN_TIME             (24 * 1000)  // window (ms) before sleep to run the LED VU-bar effect
