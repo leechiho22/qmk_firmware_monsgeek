@@ -26,6 +26,8 @@ bool RGBR_PLAY(effect_params_t *params) {
 #define NUM_PRESET_COLORS 5
 #define NUM_CHASER_LEDS 4
 #define INCREMENT 1
+// Glitter fades this many LEDs in and the same number out each cycle.
+#define NUM_GLITTER_FADE_LEDS 3
 
 
 // Color presets
@@ -80,10 +82,12 @@ static chaser_state_t chaser_state = { 0, 255, 0, 0 };
 typedef struct {
     bool fade_in_active;
     bool fade_out_active;
-    uint8_t target_fade_in_led;
-    uint8_t target_fade_out_led;
+    // The picked LEDs for one cycle, back-to-back: indices [0, NUM_GLITTER_FADE_LEDS)
+    // fade in, the rest fade out. One active flag per group (not per LED) keeps the
+    // state small -- a group stays active until every LED in it reaches its target.
+    uint8_t target_leds[NUM_GLITTER_FADE_LEDS * 2];
 } glitter_state_t;
-static glitter_state_t glitter_state = { false, false, 0, 0 };
+static glitter_state_t glitter_state = { false, false, {0} };
 
 typedef struct {
     uint8_t index;
@@ -180,34 +184,67 @@ static void adjust_hsv_towards_target(HSV* current, const HSV target, uint8_t in
 }
 
 static void glitter_effect(effect_params_t* params) {
-    static HSV target_hsv;
-    // If not currently fading in, start a new fade-in
+    // One target color per fade-in LED (fade-out just dims to black, so it needs none).
+    static HSV target_hsv[NUM_GLITTER_FADE_LEDS];
+    // If not currently fading, start a new cycle: pick the 6 LEDs to fade.
     if (!glitter_state.fade_in_active && !glitter_state.fade_out_active) {
-        // Re-roll until we land on a non-restricted, in-range LED. (Decrementing
-        // a restricted index could underflow uint8_t -> 255, an out-of-bounds
-        // write, and could still land on another restricted LED.)
-        do { glitter_state.target_fade_in_led = random8_max(RGB_MATRIX_LED_COUNT); }
-        while (isRestrictedLed(glitter_state.target_fade_in_led));
-        do { glitter_state.target_fade_out_led = random8_max(RGB_MATRIX_LED_COUNT); }
-        while (isRestrictedLed(glitter_state.target_fade_out_led));
+        // Re-roll each pick until it is non-restricted, in range, and not already
+        // chosen this cycle. (A restricted index could be one the chaser owns; an
+        // out-of-range one would be an out-of-bounds write; a duplicate would make
+        // two of the six animations fight over one LED.)
+        for (uint8_t i = 0; i < NUM_GLITTER_FADE_LEDS * 2; i++) {
+            uint8_t led;
+            bool reroll;
+            do {
+                led = random8_max(RGB_MATRIX_LED_COUNT);
+                reroll = isRestrictedLed(led);
+                for (uint8_t j = 0; j < i && !reroll; j++) {
+                    if (glitter_state.target_leds[j] == led) reroll = true;
+                }
+            } while (reroll);
+            glitter_state.target_leds[i] = led;
+        }
 
-        memcpy_P(&target_hsv, &preset_colors[random8_max(NUM_PRESET_COLORS)], sizeof(HSV));
+        // Give each fade-in LED its own color, re-rolling so no two share one this
+        // cycle. Comparing against the colors already picked works because the
+        // presets are distinct (requires NUM_GLITTER_FADE_LEDS <= NUM_PRESET_COLORS).
+        for (uint8_t i = 0; i < NUM_GLITTER_FADE_LEDS; i++) {
+            HSV color;
+            bool reroll;
+            do {
+                memcpy_P(&color, &preset_colors[random8_max(NUM_PRESET_COLORS)], sizeof(HSV));
+                reroll = false;
+                for (uint8_t j = 0; j < i && !reroll; j++) {
+                    if (isColorEqual(target_hsv[j], color)) reroll = true;
+                }
+            } while (reroll);
+            target_hsv[i] = color;
+        }
 
         glitter_state.fade_in_active = true;
-        glitter_state.fade_out_active = glitter_state.target_fade_in_led != glitter_state.target_fade_out_led;
+        glitter_state.fade_out_active = true;
     }
 
     if (glitter_state.fade_in_active) {
-        adjust_hsv_towards_target(&led_hsv[glitter_state.target_fade_in_led], target_hsv, INCREMENT);
-        // Check if the fade-in is complete
-        if (isColorEqual(led_hsv[glitter_state.target_fade_in_led], target_hsv)) glitter_state.fade_in_active = false;
+        // Keep the group active until every fade-in LED has reached the target.
+        bool all_done = true;
+        for (uint8_t i = 0; i < NUM_GLITTER_FADE_LEDS; i++) {
+            HSV* hsv = &led_hsv[glitter_state.target_leds[i]];
+            adjust_hsv_towards_target(hsv, target_hsv[i], INCREMENT);
+            if (!isColorEqual(*hsv, target_hsv[i])) all_done = false;
+        }
+        if (all_done) glitter_state.fade_in_active = false;
     }
 
     if (glitter_state.fade_out_active) {
-        HSV* hsv = &led_hsv[glitter_state.target_fade_out_led];
-        hsv->v = qsub8(hsv->v, INCREMENT);
-        // Check if the fade-out is complete
-        if (hsv->v == 0) glitter_state.fade_out_active = false;
+        // Keep the group active until every fade-out LED has gone dark.
+        bool all_done = true;
+        for (uint8_t i = NUM_GLITTER_FADE_LEDS; i < NUM_GLITTER_FADE_LEDS * 2; i++) {
+            HSV* hsv = &led_hsv[glitter_state.target_leds[i]];
+            hsv->v = qsub8(hsv->v, INCREMENT);
+            if (hsv->v != 0) all_done = false;
+        }
+        if (all_done) glitter_state.fade_out_active = false;
     }
 }
 
